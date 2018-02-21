@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -46,6 +47,14 @@ func (c collector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(humidityDesc, prometheus.GaugeValue, float64(humidity))
 }
 
+func serveAddr() string {
+	s := os.Getenv("BME280_EXPORTER_ADDR")
+	if s == "" {
+		return "127.0.0.1:8080"
+	}
+	return s
+}
+
 func main() {
 	adapter := raspi.NewAdaptor()
 	d := i2c.NewBME280Driver(adapter, i2c.WithBus(1), i2c.WithAddress(0x76))
@@ -60,8 +69,14 @@ func main() {
 	r.MustRegister(c)
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
+
+	addr := os.Getenv("BME280_EXPORTER_ADDRESS")
+	if addr == "" {
+		addr = "127.0.0.1:8080"
+	}
+
 	s := &http.Server{
-		Addr:    "127.0.0.1:8080",
+		Addr:    addr,
 		Handler: mux,
 	}
 
